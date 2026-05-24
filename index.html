@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal QR Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        /* Smooth transitions for a premium minimalist feel */
+        .transition-all {
+            transition: all 0.2s ease-in-out;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex items-center justify-center p-6">
+
+    <div class="w-full max-w-md bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-6">
+
+        <header class="text-center space-y-1">
+            <h1 class="text-xl font-medium tracking-tight text-gray-900">QR Generator</h1>
+            <p class="text-xs text-gray-400">Clean, instant, and secure.</p>
+        </header>
+
+        <div class="flex justify-between border-b border-gray-100 pb-2 text-sm font-medium text-gray-400">
+            <button onclick="switchTab('text')" id="tab-text"
+                class="text-gray-900 border-b-2 border-gray-900 pb-2 px-1 transition-all">Text / URL</button>
+            <button onclick="switchTab('wifi')" id="tab-wifi"
+                class="hover:text-gray-600 pb-2 px-1 transition-all">Wi-Fi</button>
+            <button onclick="switchTab('vcard')" id="tab-vcard"
+                class="hover:text-gray-600 pb-2 px-1 transition-all">Contact</button>
+        </div>
+
+        <div id="input-container" class="space-y-4">
+            <div id="fields-text" class="tab-content">
+                <input type="text" id="input-url" placeholder="https://example.com or your text here"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+            </div>
+
+            <div id="fields-wifi" class="tab-content hidden space-y-3">
+                <input type="text" id="wifi-ssid" placeholder="Network Name (SSID)"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                <input type="password" id="wifi-pass" placeholder="Password"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                <select id="wifi-type"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                    <option value="WPA">WPA/WPA2</option>
+                    <option value="WEP">WEP</option>
+                    <option value="nopass">Unsecured</option>
+                </select>
+            </div>
+
+            <div id="fields-vcard" class="tab-content hidden space-y-3">
+                <input type="text" id="vcard-name" placeholder="Full Name"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                <input type="tel" id="vcard-phone" placeholder="Phone Number"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                <input type="email" id="vcard-email" placeholder="Email Address"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+            </div>
+        </div>
+
+        <button onclick="generateQR()"
+            class="w-full bg-gray-950 text-white text-sm font-medium py-3 rounded-lg hover:bg-gray-800 transition-all shadow-sm">
+            Generate Code
+        </button>
+
+        <div id="qr-container"
+            class="hidden pt-4 flex flex-col items-center justify-center border-t border-gray-100 space-y-4">
+            <div id="qrcode" class="p-3 bg-white border border-gray-100 rounded-xl shadow-sm"></div>
+            <button onclick="downloadQR()"
+                class="text-xs font-medium text-gray-500 hover:text-gray-900 transition-all flex items-center space-x-1">
+                <span>Download PNG</span>
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        let currentTab = 'text';
+        let qrcodeElement = document.getElementById("qrcode");
+        let qrGenerator = null;
+
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            currentTab = tabId;
+
+            // Toggle visibility of input sections
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`fields-${tabId}`).classList.remove('hidden');
+
+            // Reset and update tab button styles
+            ['text', 'wifi', 'vcard'].forEach(id => {
+                const btn = document.getElementById(`tab-${id}`);
+                btn.className = "hover:text-gray-600 pb-2 px-1 transition-all";
+            });
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            activeBtn.className = "text-gray-900 border-b-2 border-gray-900 pb-2 px-1 transition-all";
+
+            // Hide previous QR code on tab switch to keep UI clean
+            document.getElementById('qr-container').classList.add('hidden');
+            qrcodeElement.innerHTML = "";
+            qrGenerator = null;
+        }
+
+        // Process Inputs based on active tab
+        function getQRData() {
+            if (currentTab === 'text') {
+                return document.getElementById('input-url').value.trim();
+            }
+
+            if (currentTab === 'wifi') {
+                const ssid = document.getElementById('wifi-ssid').value.trim();
+                const pass = document.getElementById('wifi-pass').value.trim();
+                const type = document.getElementById('wifi-type').value;
+                if (!ssid) return '';
+                // Standard Wi-Fi QR format: WIFI:S:SSID;T:WPA;P:PASSWORD;;
+                return `WIFI:S:${ssid};T:${type};P:${pass};;`;
+            }
+
+            if (currentTab === 'vcard') {
+                const name = document.getElementById('vcard-name').value.trim();
+                const phone = document.getElementById('vcard-phone').value.trim();
+                const email = document.getElementById('vcard-email').value.trim();
+                if (!name) return '';
+                // Standard vCard 3.0 format
+                return `BEGIN:VCARD\nVERSION:3.0\nN:${name};\nTEL:${phone}\nEMAIL:${email}\nEND:VCARD`;
+            }
+            return '';
+        }
+
+        // Generate QR Code
+        function generateQR() {
+            const data = getQRData();
+
+            if (!data) {
+                alert('Please fill out the required fields.');
+                return;
+            }
+
+            // Clear previous QR Code
+            qrcodeElement.innerHTML = "";
+
+            // Unhide container
+            document.getElementById('qr-container').classList.remove('hidden');
+
+            // Create new QR Code
+            qrGenerator = new QRCode(qrcodeElement, {
+                text: data,
+                width: 180,
+                height: 180,
+                colorDark: "#030712", // Gray 950
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        // Download QR Code as PNG
+        function downloadQR() {
+            const img = qrcodeElement.querySelector('img');
+            if (!img) return;
+
+            const link = document.createElement('a');
+            link.href = img.src;
+            link.download = `qr-code-${currentTab}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+
+</html>
