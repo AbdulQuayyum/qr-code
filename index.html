@@ -116,7 +116,6 @@
                 const pass = document.getElementById('wifi-pass').value.trim();
                 const type = document.getElementById('wifi-type').value;
                 if (!ssid) return '';
-                // Standard Wi-Fi QR format: WIFI:S:SSID;T:WPA;P:PASSWORD;;
                 return `WIFI:S:${ssid};T:${type};P:${pass};;`;
             }
 
@@ -125,7 +124,6 @@
                 const phone = document.getElementById('vcard-phone').value.trim();
                 const email = document.getElementById('vcard-email').value.trim();
                 if (!name) return '';
-                // Standard vCard 3.0 format
                 return `BEGIN:VCARD\nVERSION:3.0\nN:${name};\nTEL:${phone}\nEMAIL:${email}\nEND:VCARD`;
             }
             return '';
@@ -157,17 +155,40 @@
             });
         }
 
-        // Download QR Code as PNG
+        // Updated Download QR Code function for reliable mobile/desktop support
         function downloadQR() {
+            const canvas = qrcodeElement.querySelector('canvas');
             const img = qrcodeElement.querySelector('img');
-            if (!img) return;
 
-            const link = document.createElement('a');
-            link.href = img.src;
-            link.download = `qr-code-${currentTab}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Function to handle the blob downloading trick
+            const processDownload = (dataUrl) => {
+                // Convert base64 dataUrl into a true binary Blob object
+                fetch(dataUrl)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        const blobUrl = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = `qr-code-${currentTab}.png`;
+
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+
+                        // Clean up memory
+                        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                    })
+                    .catch(err => console.error("Download failed:", err));
+            };
+
+            // Preferred: Extract from canvas if available
+            if (canvas) {
+                processDownload(canvas.toDataURL("image/png"));
+            }
+            // Fallback: If canvas isn't populated, grab it from the generated img element source
+            else if (img && img.src) {
+                processDownload(img.src);
+            }
         }
     </script>
 </body>
