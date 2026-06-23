@@ -52,12 +52,35 @@
                 </select>
             </div>
 
-            <div id="fields-vcard" class="tab-content hidden space-y-3">
-                <input type="text" id="vcard-name" placeholder="Full Name"
+            <div id="fields-vcard" class="tab-content hidden space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                <input type="text" id="vcard-name" placeholder="Full Name *"
                     class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
-                <input type="tel" id="vcard-phone" placeholder="Phone Number"
+
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="vcard-title" placeholder="Job Title (e.g. Construction Director)"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                    <input type="text" id="vcard-org" placeholder="Company (e.g. Ariosh)"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="tel" id="vcard-phone-mobile" placeholder="Mobile Phone"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                    <input type="tel" id="vcard-phone-work" placeholder="Work Phone"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="email" id="vcard-email-primary" placeholder="Primary Email"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                    <input type="email" id="vcard-email-secondary" placeholder="Secondary/Info Email"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
+                </div>
+
+                <input type="url" id="vcard-website" placeholder="Website (http://...)"
                     class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
-                <input type="email" id="vcard-email" placeholder="Email Address"
+
+                <input type="text" id="vcard-address" placeholder="Address (e.g. Azuri Towers, Marina District)"
                     class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 focus:bg-white transition-all">
             </div>
         </div>
@@ -121,10 +144,31 @@
 
             if (currentTab === 'vcard') {
                 const name = document.getElementById('vcard-name').value.trim();
-                const phone = document.getElementById('vcard-phone').value.trim();
-                const email = document.getElementById('vcard-email').value.trim();
+                const title = document.getElementById('vcard-title').value.trim();
+                const org = document.getElementById('vcard-org').value.trim();
+                const mobile = document.getElementById('vcard-phone-mobile').value.trim();
+                const work = document.getElementById('vcard-phone-work').value.trim();
+                const emailPrimary = document.getElementById('vcard-email-primary').value.trim();
+                const emailSecondary = document.getElementById('vcard-email-secondary').value.trim();
+                const website = document.getElementById('vcard-website').value.trim();
+                const address = document.getElementById('vcard-address').value.trim();
+
                 if (!name) return '';
-                return `BEGIN:VCARD\nVERSION:3.0\nN:${name};\nTEL:${phone}\nEMAIL:${email}\nEND:VCARD`;
+
+                // Build a structured standard vCard 3.0 configuration
+                let vcard = `BEGIN:VCARD\nVERSION:3.0\nFN:${name}\nN:${name};;;;`;
+
+                if (org) vcard += `\nORG:${org}`;
+                if (title) vcard += `\nTITLE:${title}`;
+                if (mobile) vcard += `\nTEL;TYPE=CELL:${mobile}`;
+                if (work) vcard += `\nTEL;TYPE=WORK:${work}`;
+                if (emailPrimary) vcard += `\nEMAIL;TYPE=PREF,INTERNET:${emailPrimary}`;
+                if (emailSecondary) vcard += `\nEMAIL;TYPE=INTERNET:${emailSecondary}`;
+                if (website) vcard += `\nURL:${website}`;
+                if (address) vcard += `\nADR;TYPE=WORK:;;${address};;;;`;
+
+                vcard += `\nEND:VCARD`;
+                return vcard;
             }
             return '';
         }
@@ -151,18 +195,16 @@
                 height: 180,
                 colorDark: "#030712", // Gray 950
                 colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
+                correctLevel: QRCode.CorrectLevel.M // Set to Medium error correction to keep complex cards reliable to scan
             });
         }
 
-        // Updated Download QR Code function for reliable mobile/desktop support
+        // Download QR Code function
         function downloadQR() {
             const canvas = qrcodeElement.querySelector('canvas');
             const img = qrcodeElement.querySelector('img');
 
-            // Function to handle the blob downloading trick
             const processDownload = (dataUrl) => {
-                // Convert base64 dataUrl into a true binary Blob object
                 fetch(dataUrl)
                     .then(res => res.blob())
                     .then(blob => {
@@ -175,18 +217,14 @@
                         link.click();
                         document.body.removeChild(link);
 
-                        // Clean up memory
                         setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
                     })
                     .catch(err => console.error("Download failed:", err));
             };
 
-            // Preferred: Extract from canvas if available
             if (canvas) {
                 processDownload(canvas.toDataURL("image/png"));
-            }
-            // Fallback: If canvas isn't populated, grab it from the generated img element source
-            else if (img && img.src) {
+            } else if (img && img.src) {
                 processDownload(img.src);
             }
         }
