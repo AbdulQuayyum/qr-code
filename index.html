@@ -17,7 +17,7 @@
 
 <body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex items-center justify-center p-6">
 
-    <div class="w-full max-w-md bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-6">
+    <div class="w-full max-w-md bg-white rounded-2xl border border-gray-100 p-8 space-y-6">
 
         <header class="text-center space-y-1">
             <h1 class="text-xl font-medium tracking-tight text-gray-900">QR Generator</h1>
@@ -90,13 +90,13 @@
         </div>
 
         <button onclick="generateQR()"
-            class="w-full bg-gray-950 text-white text-sm font-medium py-3 rounded-lg hover:bg-gray-800 transition-all shadow-sm">
+            class="w-full bg-gray-950 text-white text-sm font-medium py-3 rounded-lg hover:bg-gray-800 transition-all">
             Generate Code
         </button>
 
         <div id="qr-container"
             class="hidden pt-4 flex flex-col items-center justify-center border-t border-gray-100 space-y-4">
-            <div id="qrcode" class="p-3 bg-white border border-gray-100 rounded-xl shadow-sm"></div>
+            <div id="qrcode" class="bg-white rounded-xl"></div>
             <button onclick="downloadQR()"
                 class="text-xs font-medium text-gray-500 hover:text-gray-900 transition-all flex items-center space-x-1">
                 <span>Download PNG</span>
@@ -208,6 +208,43 @@
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.L
             });
+
+            // Bake a visible border directly into the image itself (white quiet-zone
+            // padding + a solid stroke) so it shows up both in the on-screen preview
+            // and in the downloaded PNG, not just as a CSS wrapper around it.
+            addBorderToQR();
+        }
+
+        // Draws the generated canvas onto a new, slightly larger canvas with
+        // padding and a stroked border, then swaps it in as the visible element.
+        function addBorderToQR() {
+            const sourceCanvas = qrcodeElement.querySelector('canvas');
+            if (!sourceCanvas) return;
+
+            const padding = 24;      // white quiet-zone between QR and border
+            const borderWidth = 6;   // thickness of the visible border stroke
+            const size = sourceCanvas.width + (padding * 2);
+
+            const bordered = document.createElement('canvas');
+            bordered.width = size;
+            bordered.height = size;
+
+            const ctx = bordered.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+            ctx.drawImage(sourceCanvas, padding, padding);
+
+            ctx.strokeStyle = '#030712'; // Gray 950, matches the QR's dark modules
+            ctx.lineWidth = borderWidth;
+            ctx.strokeRect(
+                borderWidth / 2,
+                borderWidth / 2,
+                size - borderWidth,
+                size - borderWidth
+            );
+
+            qrcodeElement.innerHTML = '';
+            qrcodeElement.appendChild(bordered);
         }
 
         // Download QR Code function
